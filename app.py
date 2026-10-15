@@ -4,18 +4,17 @@ import yt_dlp
 
 app = Flask(__name__)
 
-# Diccionario central para todos tus canales sin importar de qué página sean
+# Diccionario con los canales y sus páginas de origen
 CANALES = {
-    "heraldo": "https://www.dailymotion.com/ElHeraldoDeMexico",
-    "canal5": "https://www.tvplusgratis.org/canal-5-en-vivo.php"
-
+    "canal5": "https://www.tvplusgratis.org/canal-5-en-vivo.php",
+    "heraldo": "https://www.dailymotion.com/ElHeraldoDeMexico"
 }
 
 @app.route('/')
 def home():
-    return "Proxy IPTV Multicanal Activo"
+    return "Proxy IPTV Activo"
 
-@app.route('/stream/<nombre_canal>.m3u8')
+@app.route('/<nombre_canal>.m3u8')
 def proxy_canal(nombre_canal):
     if nombre_canal not in CANALES:
         abort(404, description="Canal no encontrado")
@@ -36,7 +35,6 @@ def proxy_canal(nombre_canal):
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # yt-dlp analiza automáticamente la URL específica de ese canal, sin importar la página
             info = ydl.extract_info(target_url, download=False)
             stream_url = info.get('url')
             
