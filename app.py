@@ -12,7 +12,7 @@ TARGET_URL = "https://heraldodemexico.com.mx/"
 def home():
     return "Proxy IPTV Automático Activo"
 
-@app.route('/canal.m3u8')
+@app.route('/heraldo.m3u8')
 def canal():
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
