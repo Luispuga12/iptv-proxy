@@ -1,25 +1,33 @@
 import os
-from flask import Flask, redirect
+from flask import Flask, redirect, abort
 import yt_dlp
 
 app = Flask(__name__)
 
-TARGET_URL = "https://www.dailymotion.com/video/x88epch"
+# Diccionario central para todos tus canales sin importar de qué página sean
+CANALES = {
+    "heraldo": "https://www.dailymotion.com/ElHeraldoDeMexico",
+    "canal5": "https://www.tvplusgratis.org/canal-5-en-vivo.php"
+
+}
 
 @app.route('/')
 def home():
-    return "Proxy IPTV Anti-Bloqueo Activo"
+    return "Proxy IPTV Multicanal Activo"
 
-@app.route('/canal.m3u8')
-@app.route('/heraldo.m3u8')
-def proxy_canal():
+@app.route('/stream/<nombre_canal>.m3u8')
+def proxy_canal(nombre_canal):
+    if nombre_canal not in CANALES:
+        abort(404, description="Canal no encontrado")
+        
+    target_url = CANALES[nombre_canal]
+    
     try:
         ydl_opts = {
             'format': 'best',
             'quiet': True,
             'no_warnings': True,
             'skip_download': True,
-            # Forzamos la suplantación de navegador para burlar a Cloudflare en la nube
             'extractor_args': {
                 'generic': {
                     'impersonate': 'chrome'
@@ -28,7 +36,8 @@ def proxy_canal():
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(TARGET_URL, download=False)
+            # yt-dlp analiza automáticamente la URL específica de ese canal, sin importar la página
+            info = ydl.extract_info(target_url, download=False)
             stream_url = info.get('url')
             
             if stream_url:
