@@ -4,20 +4,21 @@ import yt_dlp
 
 app = Flask(__name__)
 
-# URL de origen del canal
-TARGET_URL = "https://heraldodemexico.com.mx/"
+# Enlace directo del video/transmisión de Dailymotion que me pasaste al inicio
+TARGET_URL = "https://www.dailymotion.com/video/x88epch"
 
 @app.route('/')
 def home():
     return "Servidor Proxy IPTV Activo"
 
-@app.route('/heraldo.m3u8')
+@app.route('/canal.m3u8')
 def canal():
     try:
         ydl_opts = {
             'format': 'best',
             'quiet': True,
             'no_warnings': True,
+            'socket_timeout': 10,
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(TARGET_URL, download=False)
