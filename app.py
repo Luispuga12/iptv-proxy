@@ -11,7 +11,7 @@ TARGET_URL = "https://heraldodemexico.com.mx/"
 def home():
     return "Servidor Proxy IPTV Activo"
 
-@app.route('/canal.m3u8')
+@app.route('/heraldo.m3u8')
 def canal():
     try:
         ydl_opts = {
