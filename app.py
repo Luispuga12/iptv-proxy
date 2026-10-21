@@ -27,11 +27,6 @@ def proxy_canal(nombre_canal):
             'quiet': True,
             'no_warnings': True,
             'skip_download': True,
-            'extractor_args': {
-                'generic': {
-                    'impersonate': 'chrome'
-                }
-            }
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -46,5 +41,5 @@ def proxy_canal(nombre_canal):
         return f"Error al actualizar token: {str(e)}", 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 10000))
+    port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
