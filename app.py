@@ -21,10 +21,16 @@ def proxy_canal(nombre_canal):
 
     target_url = CANALES[nombre_canal]
 
-    # Si es Dailymotion, usa yt-dlp normalmente
+   # Si es Dailymotion, usa yt-dlp con opciones seguras
     if "dailymotion.com" in target_url:
         try:
-            ydl_opts = {'format': 'best', 'quiet': True, 'skip_download': True}
+            ydl_opts = {
+                'format': 'best',
+                'quiet': True,
+                'skip_download': True,
+                'nocheckcertificate': True,
+                'http_headers': {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(target_url, download=False)
                 return redirect(info.get('url'), code=302)
