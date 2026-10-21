@@ -18,9 +18,9 @@ def home():
 def proxy_canal(nombre_canal):
     if nombre_canal not in CANALES:
         abort(404, description="Canal no encontrado")
-        
+
     target_url = CANALES[nombre_canal]
-    
+
     # Si es Dailymotion, usa yt-dlp normalmente
     if "dailymotion.com" in target_url:
         try:
@@ -35,34 +35,50 @@ def proxy_canal(nombre_canal):
     try:
         enlace_m3u8 = None
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
-            page = browser.new_page()
-            
+            # Lanzamos navegador con argumentos optimizados para Render (Docker)
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--single-process"]
+            )
+            context = browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+            page = context.new_page()
+
             def handle_request(route):
                 nonlocal enlace_m3u8
                 url = route.request.url
                 if ".m3u8" in url and not enlace_m3u8:
                     enlace_m3u8 = url
                 route.continue_()
-                
+
             page.route("**/*", handle_request)
-            page.goto(target_url, timeout=30000)
             
+            # Cargamos la página
+            page.goto(target_url, timeout=30000, wait_until="domcontentloaded")
+            
+            # Simulamos un clic para activar el reproductor si requiere interacción de usuario
             try:
-                page.wait_for_timeout(5000) # Espera a que el reproductor dispare la petición
-            except:
+                page.mouse.click(400, 300)
+            except Exception:
                 pass
-                
+
+            # Esperamos a que la petición del m3u8 sea interceptada
+            for _ in range(10):
+                if enlace_m3u8:
+                    break
+                page.wait_for_timeout(1000)
+
             browser.close()
-            
+
         if enlace_m3u8:
             return redirect(enlace_m3u8, code=302)
         else:
             return "No se pudo interceptar el enlace m3u8 automáticamente", 500
-            
+
     except Exception as e:
-        return f"Error de automatización: {str(e)}", 500
+        return f"Error en automatización: {str(e)}", 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8080))
+    port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
