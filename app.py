@@ -1,13 +1,14 @@
 import os
 from flask import Flask, redirect, abort
+import requests
 import yt_dlp
+from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
-# Diccionario con los canales y sus páginas de origen
 CANALES = {
-    "canal5": "https://www.tvplusgratis.org/canal-5-en-vivo.php",
     "heraldo": "https://www.dailymotion.com/video/x88epch",
+    # Ponemos la página de tvplusgratis; nuestro código la descifrará automáticamente
     "golden_edge": "https://www.tvplusgratis.org/golden-edge-en-vivo.php"
 }
 
@@ -15,12 +16,41 @@ CANALES = {
 def home():
     return "Proxy IPTV Activo"
 
+def obtener_enlace_real(url_pagina):
+    # Si es Dailymotion u otra plataforma directa, la dejamos pasar
+    if "dailymotion.com" in url_pagina:
+        return url_pagina
+        
+    # Si es de tvplusgratis, raspamos la página para encontrar el iframe o reproductor interno
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        respuesta = requests.get(url_pagina, headers=headers, timeout=5)
+        
+        if respuesta.status_code == 200:
+            soup = BeautifulSoup(respuesta.text, 'html.parser')
+            
+            # Buscamos si hay algún iframe incrustado que tenga el reproductor real
+            iframe = soup.find('iframe')
+            if iframe and iframe.get('src'):
+                src = iframe.get('src')
+                # Asegurarnos de que la URL del iframe esté completa
+                if src.startswith('//'):
+                    src = 'https:' + src
+                return src
+    except Exception as e:
+        print(f"Error al raspar la página: {e}")
+        
+    return url_pagina
+
 @app.route('/<nombre_canal>.m3u8')
 def proxy_canal(nombre_canal):
     if nombre_canal not in CANALES:
         abort(404, description="Canal no encontrado")
         
-    target_url = CANALES[nombre_canal]
+    url_base = CANALES[nombre_canal]
+    
+    # Obtenemos la URL real (si es tvplusgratis, extraerá el iframe interno)
+    target_url = obtener_enlace_real(url_base)
     
     try:
         ydl_opts = {
