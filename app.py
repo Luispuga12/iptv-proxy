@@ -1,20 +1,18 @@
 import os
-import re
 from flask import Flask, redirect, abort
-import requests
-from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 import yt_dlp
 
 app = Flask(__name__)
 
 CANALES = {
     "heraldo": "https://www.dailymotion.com/video/x88epch",
-    "golden_edge": "https://www.tvplusgratis.org/golden-edge-en-vivo.php"
+    "canal_5": "https://telelibre.st/en-vivo/canal-5/"
 }
 
 @app.route('/')
 def home():
-    return "Proxy IPTV Activo"
+    return "Proxy IPTV con Automatización Activo"
 
 @app.route('/<nombre_canal>.m3u8')
 def proxy_canal(nombre_canal):
@@ -23,40 +21,48 @@ def proxy_canal(nombre_canal):
         
     target_url = CANALES[nombre_canal]
     
+    # Si es Dailymotion, usa yt-dlp normalmente
     if "dailymotion.com" in target_url:
-        ydl_opts = {'format': 'best', 'quiet': True, 'skip_download': True}
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(target_url, download=False)
-            return redirect(info.get('url'), code=302)
-            
+        try:
+            ydl_opts = {'format': 'best', 'quiet': True, 'skip_download': True}
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(target_url, download=False)
+                return redirect(info.get('url'), code=302)
+        except Exception as e:
+            return f"Error yt-dlp: {str(e)}", 500
+
+    # Si es Tele Libre, usamos Playwright para cazar el token m3u8 al vuelo en la red
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        # 1. Entramos a la página principal del canal
-        respuesta = requests.get(target_url, headers=headers, timeout=5)
-        
-        if respuesta.status_code == 200:
-            soup = BeautifulSoup(respuesta.text, 'html.parser')
-            # 2. Buscamos el iframe 'playerFrame' que descubrimos en la inspección
-            iframe = soup.find('iframe', {'id': 'playerFrame'}) or soup.find('iframe')
-            if iframe and iframe.get('src'):
-                iframe_src = iframe.get('src')
-                if iframe_src.startswith('//'):
-                    iframe_src = 'https:' + iframe_src
-                elif iframe_src.startswith('/'):
-                    iframe_src = 'https://www.tvplusgratis.org' + iframe_src
+        enlace_m3u8 = None
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
+            page = browser.new_page()
+            
+            def handle_request(route):
+                nonlocal enlace_m3u8
+                url = route.request.url
+                if ".m3u8" in url and not enlace_m3u8:
+                    enlace_m3u8 = url
+                route.continue_()
                 
-                # 3. Entramos al contenido del core.php del iframe
-                iframe_resp = requests.get(iframe_src, headers=headers, timeout=5)
-                if iframe_resp.status_code == 200:
-                    # 4. Buscamos el enlace .m3u8 final dentro del core.php
-                    match = re.search(r'(https?://[^\s\'"]+\.m3u8[^\s\'"]*)', iframe_resp.text)
-                    if match:
-                        return redirect(match.group(1), code=302)
-                        
-        return "No se pudo extraer el flujo de video automáticamente", 500
+            page.route("**/*", handle_request)
+            page.goto(target_url, timeout=30000)
+            
+            try:
+                page.wait_for_timeout(5000) # Espera a que el reproductor dispare la petición
+            except:
+                pass
+                
+            browser.close()
+            
+        if enlace_m3u8:
+            return redirect(enlace_m3u8, code=302)
+        else:
+            return "No se pudo interceptar el enlace m3u8 automáticamente", 500
+            
     except Exception as e:
-        return f"Error interno: {str(e)}", 500
+        return f"Error de automatización: {str(e)}", 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port)
