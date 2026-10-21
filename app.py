@@ -1,7 +1,6 @@
 import os
 from flask import Flask, redirect, abort
 from playwright.sync_api import sync_playwright
-import yt_dlp
 
 app = Flask(__name__)
 
@@ -21,23 +20,6 @@ def proxy_canal(nombre_canal):
 
     target_url = CANALES[nombre_canal]
 
-   # Si es Dailymotion, usa yt-dlp con opciones seguras
-    if "dailymotion.com" in target_url:
-        try:
-            ydl_opts = {
-                'format': 'best',
-                'quiet': True,
-                'skip_download': True,
-                'nocheckcertificate': True,
-                'http_headers': {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-            }
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(target_url, download=False)
-                return redirect(info.get('url'), code=302)
-        except Exception as e:
-            return f"Error yt-dlp: {str(e)}", 500
-
-    # Si es Tele Libre, usamos Playwright para cazar el token m3u8 al vuelo en la red
     try:
         enlace_m3u8 = None
         with sync_playwright() as p:
@@ -54,22 +36,23 @@ def proxy_canal(nombre_canal):
             def handle_request(route):
                 nonlocal enlace_m3u8
                 url = route.request.url
-                if ".m3u8" in url and not enlace_m3u8:
+                # Interceptamos cualquier petición que contenga .m3u8 o listas de reproducción
+                if (".m3u8" in url or "playlist" in url) and not enlace_m3u8:
                     enlace_m3u8 = url
                 route.continue_()
 
             page.route("**/*", handle_request)
             
-            # Cargamos la página
+            # Cargamos la página del canal
             page.goto(target_url, timeout=30000, wait_until="domcontentloaded")
             
-            # Simulamos un clic para activar el reproductor si requiere interacción de usuario
+            # Simulamos un clic para activar el reproductor si requiere interacción
             try:
                 page.mouse.click(400, 300)
             except Exception:
                 pass
 
-            # Esperamos a que la petición del m3u8 sea interceptada
+            # Esperamos a que la petición del enlace sea interceptada
             for _ in range(10):
                 if enlace_m3u8:
                     break
