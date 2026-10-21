@@ -3,12 +3,13 @@ from flask import Flask, redirect, abort
 import requests
 import yt_dlp
 from bs4 import BeautifulSoup
+import re
 
 app = Flask(__name__)
 
 CANALES = {
     "heraldo": "https://www.dailymotion.com/video/x88epch",
-    # Ponemos la página de tvplusgratis; nuestro código la descifrará automáticamente
+    # Canal de tvplusgratis
     "golden_edge": "https://www.tvplusgratis.org/golden-edge-en-vivo.php"
 }
 
@@ -21,19 +22,22 @@ def obtener_enlace_real(url_pagina):
     if "dailymotion.com" in url_pagina:
         return url_pagina
         
-    # Si es de tvplusgratis, raspamos la página para encontrar el iframe o reproductor interno
+    # Si es de tvplusgratis, buscamos enlaces .m3u8 o fuentes ocultas en el código fuente
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         respuesta = requests.get(url_pagina, headers=headers, timeout=5)
         
         if respuesta.status_code == 200:
+            # Buscamos con expresiones regulares cualquier URL .m3u8 oculta en el script
+            match = re.search(r'(https?://[^\s\'"]+\.m3u8[^\s\'"]*)', respuesta.text)
+            if match:
+                return match.group(1)
+                
+            # Como alternativa secundaria, buscamos iframes
             soup = BeautifulSoup(respuesta.text, 'html.parser')
-            
-            # Buscamos si hay algún iframe incrustado que tenga el reproductor real
             iframe = soup.find('iframe')
             if iframe and iframe.get('src'):
                 src = iframe.get('src')
-                # Asegurarnos de que la URL del iframe esté completa
                 if src.startswith('//'):
                     src = 'https:' + src
                 return src
@@ -49,7 +53,7 @@ def proxy_canal(nombre_canal):
         
     url_base = CANALES[nombre_canal]
     
-    # Obtenemos la URL real (si es tvplusgratis, extraerá el iframe interno)
+    # Obtenemos la URL real (si es tvplusgratis, extraerá el flujo o iframe interno)
     target_url = obtener_enlace_real(url_base)
     
     try:
