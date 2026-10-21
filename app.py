@@ -7,7 +7,7 @@ app = Flask(__name__)
 # Diccionario con los canales y sus páginas de origen
 CANALES = {
     "canal5": "https://www.tvplusgratis.org/canal-5-en-vivo.php",
-    "heraldo": "https://www.dailymotion.com/ElHeraldoDeMexico"
+    "heraldo": "https://www.dailymotion.com/video/x88epch"
 }
 
 @app.route('/')
