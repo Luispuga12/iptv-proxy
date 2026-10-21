@@ -1,3 +1,8 @@
+# fly.toml app configuration file generated for iptv-proxy-1g-7uw on 2026-10-21T19:21:51Z
+#
+# See https://docs.fly.io/reference/configuration for information about how to use this file.
+#
+
 app = 'iptv-proxy-1g-7uw'
 primary_region = 'ams'
 
@@ -7,7 +12,7 @@ primary_region = 'ams'
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = 'stop'
+  auto_stop_machines = true
   auto_start_machines = true
   min_machines_running = 0
   processes = ['app']
@@ -16,3 +21,7 @@ primary_region = 'ams'
   cpu_kind = 'shared'
   cpus = 1
   memory_mb = 256
+
+[[restart]]
+  policy = 'on-failure'
+  processes = ['app']
