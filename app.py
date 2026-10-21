@@ -36,15 +36,18 @@ def proxy_canal(nombre_canal):
             def handle_request(route):
                 nonlocal enlace_m3u8
                 url = route.request.url
-                # Interceptamos cualquier petición que contenga .m3u8 o listas de reproducción
-                if (".m3u8" in url or "playlist" in url) and not enlace_m3u8:
+                # Filtramos para atrapar el .m3u8 real evitando peticiones de publicidad (vmap/ads)
+                if ".m3u8" in url and "vmap" not in url and "ads" not in url and not enlace_m3u8:
                     enlace_m3u8 = url
                 route.continue_()
 
             page.route("**/*", handle_request)
             
-            # Cargamos la página del canal
-            page.goto(target_url, timeout=30000, wait_until="domcontentloaded")
+            # Cargamos la página del canal con un timeout controlado
+            try:
+                page.goto(target_url, timeout=15000, wait_until="domcontentloaded")
+            except Exception:
+                pass
             
             # Simulamos un clic para activar el reproductor si requiere interacción
             try:
@@ -52,7 +55,7 @@ def proxy_canal(nombre_canal):
             except Exception:
                 pass
 
-            # Esperamos a que la petición del enlace sea interceptada
+            # Damos unos segundos extra para que pasen los anuncios y salte la lista del video real
             for _ in range(10):
                 if enlace_m3u8:
                     break
@@ -63,7 +66,7 @@ def proxy_canal(nombre_canal):
         if enlace_m3u8:
             return redirect(enlace_m3u8, code=302)
         else:
-            return "No se pudo interceptar el enlace m3u8 automáticamente", 500
+            return "No se pudo interceptar el enlace m3u8 del video", 500
 
     except Exception as e:
         return f"Error en automatización: {str(e)}", 500
